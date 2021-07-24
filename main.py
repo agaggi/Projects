@@ -1,78 +1,59 @@
 import sys
 import os
 import glob
-import random
-from PIL import Image
 
-import triangle as t
 from genetic import GeneticAlgorithm
+
+def input_check(image, population):
+
+    '''Checks the arguments entered by the user.
+    
+    :param image: The selected name to look for in the `images` directory
+    :param population: Population size
+    :return: If any errors occurred
+    '''
+
+    errors = False
+
+    if not os.path.exists(image):
+
+        print(f'File does not exist: {image}')
+        errors = True
+    
+    if population < 1:
+
+        print('Asexual reproduction requires at least one parent.')
+        errors = True
+
+    return errors
+
 
 def main():
 
-    '''Main function for the Genetic Algorithm program.
+    '''Initializes the program.'''
 
-    This function will take in 3 or 4 arguments from the command line and a new
-    GeneticAlgorithm object will be created based on said arguments.
-
-    GeneticAlgorithm(`image`, `population size`, `reproduction method`)
-    `crossover_rate`: rate at which crossover occurs (i.e. 0.7 => 70% crossover chance)
-
-    ** The `images` folder will be wiped each time the program is executed. **
-    '''
-
-    file_location = sys.argv[1]
+    # Passed-in arguments
+    image_path = f'images/{sys.argv[1]}'
     population = int(sys.argv[2])
-    mode = sys.argv[3].lower()
 
-    genetic = GeneticAlgorithm(file_location, population, mode)
+    errors = input_check(image_path, population)
 
-    # If the mode is sexual, implement crossover rate
-    if mode == 'sexual':
+    if not errors:
 
-        crossover_rate = float(sys.argv[4])
+        # Create the output folder if it does not exist
+        if not os.path.exists('output'):
 
-        if crossover_rate > 1 or population <= 1:
+            os.makedirs('output')
 
-            exit('\n-- Something is wrong with your arguements. See README file. --\n')
+        # Clear output from previous run
+        folder = glob.glob('output/*')
+        
+        for image in folder:
 
-    # Cleans the images folder from the program's previous run
-    files = glob.glob('generated images/*')
+            os.remove(image)
 
-    for file in files:
-
-        os.remove(file)
-
-    # Creates a number of "blank" pictures based on the population size
-    gen0 = [(Image.new('RGB', size=(256, 256))) for _ in range(genetic.population)]
-
-    # Drawing triangles on the initial population
-    # List format: [image, triangles within image]
-    gen0 = t.init_draw(gen0)
-
-    # Selecting the best parent(s) from the list of triangles
-    genetic.selection(gen0)
-
-    if genetic.mode == 'sexual':
-
-        new_gen = genetic.crossover()
-
-        while not genetic.selection(new_gen):
-
-            if crossover_rate > random.random():
-
-                new_gen = genetic.crossover()
-
-            else:
-
-                new_gen = genetic.asexual()
-
-    else:
-
-        new_gen = genetic.asexual()
-
-        while not genetic.selection(new_gen):
-
-            new_gen = genetic.asexual()
+        algorithm = GeneticAlgorithm(image_path, population)
+        algorithm.run()
 
 
 if __name__ == '__main__':

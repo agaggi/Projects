@@ -1,211 +1,190 @@
 import os
-import gc
 import random
-from PIL import Image, ImageDraw
+import gc
+from copy import deepcopy
+from PIL import Image, ImageDraw    # PIP package
 
-import triangle as t
+from triangle import Triangle
+
+# Generated images will be 256x256 pixels
+RESOLUTION = (256, 256)
+NUM_TRIANGLES = 512
 
 class GeneticAlgorithm:
 
-    def __init__(self, image, population, mode):
+    def __init__(self, image, population):
 
-        '''Class contains methods that are used for recreating an image with triangles.
-
+        '''Class implements methods to recreate images via triangles and a genetic 
+        algorithm through asexual reproduction.
+        
         :param image: The image to be replicated
-        :param population: The number of children reproduced per generation
-        :param mode: Asexual / Sexual reproduction
+        :param population: The number of children per generation
         '''
 
         self.generation = 0
-        self.parents = []
+        self.parent = []
+        self.file_type = image[image.index('.'):]
 
+        self.image = Image.open(image).resize(RESOLUTION)
         self.population = population
-        self.image = Image.open(image).resize((256, 256))
-        self.mode = mode.lower()
+
+
+    def draw_first_gen(self, children):
+
+        '''Prepares the first generation of images with their triangles.
+        
+        :param children: The incoming list of "blank" images to be drawn on
+        :return: A list of drawn images with their respective triangles
+        '''
+
+        drawn_images = []
+
+        for child in children:
+
+            triangles = []
+
+            # Allows for the image to be drawn on
+            image = ImageDraw.Draw(child, 'RGBA')
+
+            for _ in range(NUM_TRIANGLES):
+
+                triangle = Triangle()
+                triangles.append(triangle)
+
+                image.polygon(triangle.get_edges(), fill=triangle.get_RGBA())
+            
+            # Children with their respective triangles are grouped together
+            drawn_images.append([child, triangles])
+        
+        return drawn_images
+
+
+    def run(self):
+
+        '''Prepares the program to run based on user input.'''
+
+        # Prepare the first generation
+        first_gen = [(Image.new('RGB', size=RESOLUTION)) for _ in range(self.population)]
+        first_gen = self.draw_first_gen(first_gen)
+
+        self.get_fitness(first_gen)
+        next_gen = self.reproduce()
+
+        # Keeps running until an exact replica is made
+        while not self.get_fitness(next_gen):
+
+            next_gen = self.reproduce()
 
 
     def get_fitness(self, children):
 
-        '''Takes in a list of children and compares each child to the original image.
-
-        A list of children is passed in and run through a for-loop for n number of times;
-        n being how ever many children are in the list. For every child, each pixel is
-        compared to the respective pixel in the original image, and the difference is
-        calculated. After all pixels have been compared, the total difference is stored
-        in a new list, along with the image and its triangles. After all iterations, the
-        new list is returned.
-
-        :param children: [image, triangles within image]
+        '''Calculates fitness for a generation.
+        
+        Fitness is the sum of the differences in pixels between the children and the
+        original image. Fitness is calulated for each child and ranked based on lowest
+        value (least difference).
+        
+        :param children: A list of images along with their respective triangles
+        :return: If a replica was created or not
         '''
 
-        # For every image in the list, go through its pixel values and compare to original
         for child in children:
 
-            difference = 0
+            fitness = 0
 
-            for i in range(256):
+            # Compare the pixels of the child to the original image.
+            # The difference between the two is the child's fitness.
+            for x in range(RESOLUTION[0]):
 
-                for j in range(256):
+                for y in range(RESOLUTION[1]):
 
-                    r, g, b = child[0].getpixel((i, j))
-                    r2, g2, b2 = self.image.getpixel((i, j))
+                    # Get the RGB values of pixels at the following location
+                    # Recall each child contains: [image, triangles]
+                    r, g, b = child[0].getpixel((x, y))
+                    R, G, B = self.image.getpixel((x, y))
 
-                    difference += abs(r2 - r) + abs(g2 - g) + abs(b2 - b)
+                    fitness += abs(R - r) + abs(G - g) + abs(B - b)
+            
+            # Current state: [image, triangles, fitness]
+            child.append(fitness)
+        
+        self.parent = self.get_parent(children)
 
-            # List format: [image, triangles within image, difference]
-            # difference will be used to sort the images to get the best
-            child.append(difference)
-
-        return children
-
-
-    def selection(self, children):
-
-        '''Selects the best image(s) to be used in reproduction.
-
-        The fitness function is used in order to obtain the list of children with their
-        differences from the original image. The list is then sorted by the difference in
-        pixels. In this case, it. Then, depending on the reproduction method, the best
-        image(s) and its triangles are selected to be the parent(s).
-
-        :param children: [image, triangles within image]
-        '''
-
-        # Sorting the list of children by difference using a key function
-        children_list = self.get_fitness(children)
-        children_list.sort(reverse=False, key=lambda child: child[2])
-
-        # Parent list format: [image, triangles within image]
-        if self.mode == 'sexual':
-
-            self.parents = [[children_list[0][0], children_list[0][1]],
-                            [children_list[1][0], children_list[1][1]]]
-
-        elif self.mode == 'asexual':
-
-            self.parents = [[children_list[0][0], children_list[0][1]]]
-
-        else:
-
-            exit('\n-- Invalid reproductive method entered. --\n')
-
-        # Every 100 generations, the best image of that generation is outputted
-        if self.generation % 100 == 0:
-
-            self.parents[0][0].save(os.path.join('generated images/', 
-                                                 f'{self.generation}.jpg'))
-
-            print(f'Fitness after {self.generation} generations: {children_list[0][2]}')
-
-        # If the difference is 0 we are done
-        if children_list[0][2] == 0:
-
-            return True
-
-        del children_list
+        del children
         gc.collect()
+
+        # Check if a replica was created through fitness value
+        if self.parent[2] == 0:
+
+            print('-- Replica created --')
+            return True
 
         return False
 
 
-    def crossover(self):
+    def get_parent(self, children):
 
-        '''Takes a random number of triangles from parent 1 and parent 2 and creates `n`
-        amount of children.
-
-            parent1_inherit = random.randint(1, len(parent1))
-            parent2_inherit = len(parent1) - parent1_inherit
-
-        After it has been decided how many triangles of each parent will be draw on a new
-        blank image, there will be a chance for coordinates and color to mutate
-        respectively. Then the new triangles are appended with the child image to a new
-        list that is returned.
+        '''Sorts the children by their fitness values and returns the best child.
+        
+        :param children: The children to be sorted by fitness value
+        :return: The best child of the generation
         '''
 
-        offspring = [(Image.new('RGB', size=(256, 256))) for _ in range(self.population)]
+        # Sort children by ascending value; less is better
+        children.sort(reverse=False, key=lambda child: child[2])
 
-        mutation_rate = 0.05
-        new_gen = []
+        # Save the best image every 100 generations and print its fitness
+        if self.generation % 100 == 0:
 
-        parent1, parent2 = self.parents[0][1], self.parents[1][1]
+            print(f'Fitness after {self.generation} generations: {children[0][2]}')
+            children[0][0].save(os.path.join('output/', 
+                                             f'{self.generation}{self.file_type}'))
+        
+        # [image, triangles, fitness]
+        return children[0]
 
+
+    def reproduce(self):
+
+        '''Asexual reproduction.
+        
+        The parent's triangles are taken and given the chance to mutate in an attempt
+        to create better offspring.
+        
+        :param parent: The best image from the current generation
+        :return: The new generation of images based off the parent
+        '''
+
+        offspring = [(Image.new('RGB', size=RESOLUTION)) for _ in range(self.population)]
+        next_gen = []
+
+        # Draw on each blank image
         for child in offspring:
 
             triangles = []
-            new_image = ImageDraw.Draw(child, 'RGBA')
+            image = ImageDraw.Draw(child, 'RGBA')
 
-            parent1_inherit = random.randint(1, len(parent1))
-            parent2_inherit = len(parent1) - parent1_inherit
+            # The child will inherit the triangles from the parent
+            # Each triangle could mutate (depends on MUTATION_RATE in triangle.py)
+            for triangle in self.parent[1]:
 
-            for j in range(parent1_inherit):
+                # NEED to perform a deepcopy to create an unique triangle instance
+                triangle_copy = deepcopy(triangle)
 
-                coord1, coord2, coord3 = t.mutate_coords(parent1[j][0], mutation_rate)
-                r, g, b, a = t.mutate_color(parent1[j][1], mutation_rate)
+                triangle_copy.mutate_edges()
+                triangle_copy.mutate_colors()
 
-                new_image.polygon([coord1, coord2, coord3], fill=(r, g, b, a))
-                triangles.append([[coord1, coord2, coord3], [r, g, b, a]])
-
-            for j in range(parent2_inherit):
-
-                coord1, coord2, coord3 = t.mutate_coords(parent2[j][0], mutation_rate)
-                r, g, b, a = t.mutate_color(parent2[j][1], mutation_rate)
-
-                new_image.polygon([coord1, coord2, coord3], fill=(r, g, b, a))
-                triangles.append([[coord1, coord2, coord3], [r, g, b, a]])
-
-            new_gen.append([child, triangles])
-
+                triangles.append(triangle_copy)
+                image.polygon(triangle_copy.get_edges(), fill=triangle_copy.get_RGBA())
+            
+            next_gen.append([child, triangles])
+        
         self.generation += 1
 
-        del self.parents[:]
+        # Conserve memory as much as possible for long runs
         del triangles
         del offspring
-        del parent1
-        del parent2
 
         gc.collect()
 
-        return new_gen
-
-
-    def asexual(self):
-
-        '''The best parent of each generation reproduces, creating `n` new children.
-
-        New images are created and inherit triangles from the parent, but there will be a
-        chance for coordinates and color to mutate respectively. Then the new triangles
-        are appended with the child image to a new list that is returned.
-        '''
-
-        offspring = [(Image.new('RGB', size=(256, 256))) for _ in range(self.population)]
-
-        mutation_rate = 0.05
-        new_gen = []
-
-        parent = self.parents[0][1]
-
-        for child in offspring:
-
-            triangles = []
-            new_image = ImageDraw.Draw(child, 'RGBA')
-
-            for i in range(len(parent)):
-
-                coord1, coord2, coord3 = t.mutate_coords(parent[i][0], mutation_rate)
-                r, g, b, a = t.mutate_color(parent[i][1], mutation_rate)
-
-                new_image.polygon([coord1, coord2, coord3], fill=(r, g, b, a))
-                triangles.append([[coord1, coord2, coord3], [r, g, b, a]])
-
-            new_gen.append([child, triangles])
-
-        self.generation += 1
-
-        del self.parents[:]
-        del triangles
-        del offspring
-        del parent
-
-        gc.collect()
-
-        return new_gen
+        return next_gen

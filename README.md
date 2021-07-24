@@ -1,88 +1,42 @@
-# Image Replication via Genetic Algorithm
+# Recreating Images with Triangles
 
-## Program Requirements
+This program was an assignment for *CS 580 - Introduction to Artificial Intelligence* at *Old Dominion University* during the Fall 2020 semester.
 
-- Python version 3.7+
-- The **PIL** pip package
+Images within the `images` directory are re-created by using triangles of various colors and transparency through the use of a genetic algorithm using asexual reproduction. Images created are compared to the original and the difference in pixels is calculated. The best image of the generation is the parent of the next.
 
-To install PIL (Python Imaging Library):
+## Execution
 
-```bash
-# Linux
-pip3 install Pillow
+### Dependencies
 
-# Windows
-pip install Pillow
-```
+- Python 3.7+ preferred
+- [Pillow](https://pypi.org/project/Pillow/) PIP package
 
-## Execution Instructions
-
-The `main.py` file is the file specified to be run; attempting to run any other file will result in no output. The program should be run following this format:
+The program should be ran following the following format:
 
 ```bash
-# Linux
-python3 main.py images/{image} {population size} {reproduction method} {crossover rate}
+# Unix-based
+python3 main.py {image} {population size per generation}
 
 # Windows
-py .\main.py images/{image} {population size} {reproduction method} {crossover rate}
+py .\main.py {image} {population size per generation}
 ```
 
-> Crossover rate is only required if the reproduction method you entered was **sexual**.
+For example, there is a file called `apple.jpg` in the `images` directory:
 
-### Arguments
+```bash
+python3 main.py apple.jpg 100
+```
 
-#### Image Location
+## Samples
 
-The following images are available and are stored in the `images` directory:
+All samples are located in the `samples` directory. Samples were given 2-4 days to run and log files are provided. Images are named after their generation. 
 
-- `d.jpg` - An apple
-- `mona.jpg` - Mona Lisa
-- `black.jpg` - A pure black image
+The setting for each of the samples are provided below:
 
-> If you add your own image it **must** be in **.jpg** format, as that is how the results are saved and compared.
-    
-#### Population Size
+| Image     | Population per Generation | # of Triangles | Mutation Rate |
+| :-------: | :-----------------------: | :------------: | :-----------: |
+| flag.jpg  | 100                       | 256            | 5%            |
+| apple.jpg | 200                       | 512            | 7.5%          |
+| odu.webp  | 500                       | 512            | 5%            |
 
-- A population size of 100 or less is recommended if you are wanting quicker results. The greater the population size, the more likely you are to get a better parent.
-- If the reproductive method you enter is `sexual`, your population size **must be at least** 2.
-
-#### Reproductive Method:
-
-There are two reproductive methods that this program can perform: **sexual** and **asexual**.
-
-#### Crossover Rate (sexual reproduction only):
-
-A floating point value from **0** to **1**. This value represents the percentage / chance crossover, the inheritance of characteristics from parents, should occur.
-
-## Analysis
-
-This program takes in an image, the number of images per generation, a reproductive method (i.e. *asexual* or *sexual*), as well as crossover rate if needed. Throughout the testing, each parameter was found to have a considerable impact on the functionality of the program. For example, when a population size of **2** is entered, over the course of the program, minor improvements will be made and the evolution process will be slow; it was very common for the fitness value to increase again.
-
-- Fitness values in this program represent the pure difference between the target image and an image within a population. **Lower is better**.
-- Note: 256 triangles were used throughout this program.
-
-It should also be noted that images with less complexity (i.e. images of a solid color) run much faster. When running the **black.jpg** file, the fitness values decrease dramatically at first and then plateau at around a fitness value of **250000** (see how the image was ran below). Other images would also plateau around a particular fitness value. This could have likely been alleviated by adding more members to the population or more triangles; however, it would have taken much more time.
-
-Two reproduction methods were used within this program: asexual and sexual. Of the two, asexual produced far better results than sexual reproduction. This was likely due to the fact that the best image was always chosen, not two parents, and the inherited triangles had the chance to be mutated. When running the program with a crossover rate of 100%, the results were not favorable; clusters of triangles of the same color would appear and would not reproduce properly. This was likely why crossover rate was a requirement for this program.
-
-## Sample Images
-
-For examples of how this program ran, see the `sample images` folder.
-
-| Image         | Population Size | Reproduction Method    | Mutation Rate  
-| :-----------: | :-------------: | :--------------------: | :-----------: 
-| `d.jpg`       | 100             | Asexual                | 5% 
-| `mona.jpg`    | 300             | Asexual                | 5% 
-| `black.jpg`   | 50              | Sexual (70% crossover) | 5%
-
-## Citations
-
-1. [Genetic Programming: Evolution of Mona Lisa](https://rogerjohansson.blog/2008/12/07/genetic-programming-evolution-of-mona-lisa/)
-    - Author: Roger Johansson
-    - Date Retreived: 10/16/20
-    - This website served as inspiration for the project. No code was used from this source as there was none provided.
-
-2. [Python - multi-triangle fitting image example based on genetic algorithm](https://www.cnblogs.com/yu-long/p/11974213.html)
-    - Author: Yulong
-    - Date Retreived: 10/16/20
-    - This website explained and provided sample code for a project quite similar to this one. The mutation functions within my program were influenced by the author's implementation.
+**Note**: The number of triangles and mutation rate can be modified by changing the constant variables at the top of `genetic.py` and `triangle.py`.
